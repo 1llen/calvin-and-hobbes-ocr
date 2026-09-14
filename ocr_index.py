@@ -2,6 +2,22 @@
 Runs OCR over every scraped page image and builds a searchable SQLite
 full-text index (FTS5). Safe to re-run: pages already indexed are skipped.
 
+Comic pages are multi-panel, with dialogue scattered across many small
+speech bubbles rather than one flowing block of text. Whole-page OCR modes
+tend to mash unrelated bubbles together into garbled compound words, so
+this instead:
+  1. Preprocesses each page (2x upscale + binarize) since the stylized,
+     bold comic lettering benefits from more pixels and hard black/white
+     contrast.
+  2. Runs Tesseract in sparse-text mode (--psm 11), which looks for
+     scattered text regions instead of assuming one reading order.
+  3. Keeps only individual words above a confidence threshold, joined by
+     spaces — this sacrifices sentence order (irrelevant for search) in
+     exchange for much less cross-bubble garbage.
+  4. Stores each kept word's bounding box (scaled back to original image
+     coordinates) so a viewer can highlight exactly where a match sits on
+     the page.
+
 Usage:
     python ocr_index.py
     python ocr_index.py --issue 6
@@ -11,6 +27,7 @@ import argparse
 import sqlite3
 
 import pytesseract
+from pytesseract import Output
 from PIL import Image
 
 from config import IMAGES_DIR, DB_PATH, ISSUES
@@ -23,7 +40,32 @@ CREATE VIRTUAL TABLE IF NOT EXISTS pages_fts USING fts5(
     image_path UNINDEXED,
     tokenize = 'porter unicode61'
 );
+
+CREATE TABLE IF NOT EXISTS words (
+    issue INTEGER NOT NULL,
+    page INTEGER NOT NULL,
+    word TEXT NOT NULL,
+    left INTEGER NOT NULL,
+    top INTEGER NOT NULL,
+    width INTEGER NOT NULL,
+    height INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_words_issue_page ON words(issue, page);
+CREATE INDEX IF NOT EXISTS idx_words_word ON words(word);
 """
+
+MIN_CONFIDENCE = 60
+PREPROCESS_SCALE = 2
+PREPROCESS_THRESHOLD = 180
+
+
+def preprocess(im: Image.Image) -> Image.Image:
+    im = im.convert("L")
+    w, h = im.size
+    im = im.resize((w * PREPROCESS_SCALE, h * PREPROCESS_SCALE), Image.LANCZOS)
+    im = im.point(lambda p: 255 if p > PREPROCESS_THRESHOLD else 0)
+    return im
 
 
 def init_db(conn: sqlite3.Connection) -> None:
@@ -39,13 +81,36 @@ def already_indexed(conn: sqlite3.Connection, issue: int, page: int) -> bool:
 
 
 def index_image(conn: sqlite3.Connection, issue: int, page: int, image_path) -> None:
-    # --psm 6 (treat the page as one uniform block of text) captures
-    # noticeably more of a multi-panel comic strip's dialogue than the
-    # default auto page-segmentation mode, which tends to drop whole panels.
-    text = pytesseract.image_to_string(Image.open(image_path), config="--psm 6")
+    prepped = preprocess(Image.open(image_path))
+    data = pytesseract.image_to_data(prepped, config="--psm 11", output_type=Output.DICT)
+
+    words = []
+    word_rows = []
+    for i in range(len(data["text"])):
+        text = data["text"][i].strip()
+        conf = int(data["conf"][i])
+        if not text or conf < MIN_CONFIDENCE:
+            continue
+        words.append(text)
+        word_rows.append(
+            (
+                issue,
+                page,
+                text,
+                data["left"][i] // PREPROCESS_SCALE,
+                data["top"][i] // PREPROCESS_SCALE,
+                data["width"][i] // PREPROCESS_SCALE,
+                data["height"][i] // PREPROCESS_SCALE,
+            )
+        )
+
     conn.execute(
         "INSERT INTO pages_fts (text, issue, page, image_path) VALUES (?, ?, ?, ?)",
-        (text, issue, page, str(image_path)),
+        (" ".join(words), issue, page, str(image_path)),
+    )
+    conn.executemany(
+        "INSERT INTO words (issue, page, word, left, top, width, height) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        word_rows,
     )
 
 
