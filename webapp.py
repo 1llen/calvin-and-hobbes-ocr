@@ -13,6 +13,7 @@ from flask import Flask, request, render_template, send_file, abort
 from PIL import Image, ImageDraw
 
 from config import DB_PATH, ISSUES
+from query_utils import build_match_query
 
 app = Flask(__name__)
 
@@ -41,29 +42,33 @@ def index():
     error = None
 
     if q:
-        conn = get_db()
-        where = "WHERE pages_fts MATCH ?"
-        params = [q]
-        if issue_filter:
-            where += " AND issue = ?"
-            params.append(int(issue_filter))
+        match_query = build_match_query(q)
+        if match_query is None:
+            error = "Please enter a search term."
+        else:
+            conn = get_db()
+            where = "WHERE pages_fts MATCH ?"
+            params = [match_query]
+            if issue_filter:
+                where += " AND issue = ?"
+                params.append(int(issue_filter))
 
-        try:
-            total = conn.execute(f"SELECT COUNT(*) FROM pages_fts {where}", params).fetchone()[0]
-            rows = conn.execute(
-                f"""
-                SELECT issue, page, image_path,
-                       snippet(pages_fts, 0, '<mark>', '</mark>', ' … ', 16) AS snip
-                FROM pages_fts
-                {where}
-                ORDER BY issue, page LIMIT ?
-                """,
-                params + [RESULTS_LIMIT],
-            ).fetchall()
-            results = [dict(r) for r in rows]
-        except sqlite3.OperationalError as e:
-            error = f"Search syntax error: {e}"
-        conn.close()
+            try:
+                total = conn.execute(f"SELECT COUNT(*) FROM pages_fts {where}", params).fetchone()[0]
+                rows = conn.execute(
+                    f"""
+                    SELECT issue, page, image_path,
+                           snippet(pages_fts, 0, '<mark>', '</mark>', ' … ', 16) AS snip
+                    FROM pages_fts
+                    {where}
+                    ORDER BY issue, page LIMIT ?
+                    """,
+                    params + [RESULTS_LIMIT],
+                ).fetchall()
+                results = [dict(r) for r in rows]
+            except sqlite3.OperationalError as e:
+                error = f"Search syntax error: {e}"
+            conn.close()
 
     return render_template(
         "index.html",
@@ -74,6 +79,30 @@ def index():
         total=total,
         limit=RESULTS_LIMIT,
         error=error,
+        active="search",
+    )
+
+
+@app.route("/color")
+def color_page():
+    conn = get_db()
+    error = None
+    results = []
+    try:
+        rows = conn.execute(
+            "SELECT issue, page FROM page_color WHERE is_color = 1 ORDER BY issue, page"
+        ).fetchall()
+        results = [dict(r) for r in rows]
+    except sqlite3.OperationalError:
+        error = "No color data yet — run detect_color.py first."
+    conn.close()
+
+    return render_template(
+        "color.html",
+        results=results,
+        total=len(results),
+        error=error,
+        active="color",
     )
 
 

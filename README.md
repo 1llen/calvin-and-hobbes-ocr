@@ -31,8 +31,9 @@ script waits up to 3 minutes for the reader to load. The browser profile is
 saved under `data/browser_profile`, so once solved it usually won't ask again
 for a while.
 
-Once that single page downloads correctly to
-`data/images/issue_06/page_012.jpg`, scrape everything:
+Once that single page downloads correctly to `data/images/issue_06/`
+(as `page_012.webp` or `.jpg` depending on what the CDN served), scrape
+everything:
 
 ```
 python scrape.py
@@ -63,6 +64,11 @@ python ocr_index.py --tesseract-cmd "C:\Program Files\Tesseract-OCR\tesseract.ex
 
 ## 3. Search
 
+A search for multiple words requires all of them to be present on the page
+(e.g. "tiger sandwich" only matches pages containing both words — not
+either one). A trailing `*` on a word does a prefix search. Punctuation
+like apostrophes is handled fine (`don't`, `hobbes's`).
+
 ### Command line
 
 ```
@@ -83,6 +89,18 @@ Then open http://127.0.0.1:5000 in a browser. It's a search box that shows
 each matching page's actual comic image inline, with the matched word boxed
 in red directly on the page — click a result to open the full-size,
 highlighted image in a new tab. Optional issue filter dropdown included.
+
+## 4. Browse colored pages
+
+```
+python detect_color.py
+```
+
+Resumable, like the other steps. Scores every page by average color
+saturation to tell colored pages (Sunday strips, covers) apart from
+black-and-white ones — the collection splits very cleanly into two clusters
+with a wide empty gap between them, so this is reliable. Once it's run,
+open the "Colored Pages" tab in the web GUI to browse all of them.
 
 ## How OCR works here
 
