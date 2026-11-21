@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Colored Pages{% endblock %}
+{% block content %}
+  {% if error %}
+    <div class="error">{{ error }}</div>
+  {% else %}
+    <div class="meta">{{ total }} colored page{{ 's' if total != 1 else '' }} found across the collection.</div>
+
+    {% for r in results %}
+    <div class="result">
+      <h2><a href="{{ url_for('image', issue=r.issue, page=r.page) }}" target="_blank">Issue {{ r.issue }}, Page {{ r.page }}</a></h2>
+      <a href="{{ url_for('image', issue=r.issue, page=r.page) }}" target="_blank">
+        <img src="{{ url_for('image', issue=r.issue, page=r.page) }}" loading="lazy" alt="Issue {{ r.issue }} page {{ r.page }}">
+      </a>
+    </div>
+    {% endfor %}
+  {% endif %}
+{% endblock %}

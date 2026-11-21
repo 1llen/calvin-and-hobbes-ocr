@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{% block title %}Calvin and Hobbes{% endblock %}</title>
+<style>
+  body { font-family: system-ui, sans-serif; background: #1c1e20; color: #e6e6ea; margin: 0; padding: 24px 24px 60px; }
+  h1 { margin-top: 0; font-size: 22px; }
+  nav { margin-bottom: 20px; }
+  nav a { color: #9aa0b4; text-decoration: none; margin-right: 18px; font-size: 14px; }
+  nav a.active { color: #6f8cff; font-weight: 600; }
+  nav a:hover { text-decoration: underline; }
+  form { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+  input[type=text] { flex: 1; min-width: 220px; padding: 10px 12px; font-size: 16px; border-radius: 6px; border: 1px solid #444; background: #111; color: #eee; }
+  select, button { padding: 10px 14px; font-size: 16px; border-radius: 6px; border: 1px solid #444; background: #292b2f; color: #eee; cursor: pointer; }
+  button:hover { background: #3a3d42; }
+  .meta { color: #9aa0b4; margin-bottom: 20px; }
+  .error { color: #ff8a8a; margin-bottom: 20px; }
+  .result { background: #212327; border: 1px solid #2b2d3a; border-radius: 10px; padding: 16px; margin-bottom: 20px; max-width: 760px; }
+  .result h2 { margin: 0 0 8px 0; font-size: 17px; }
+  .result h2 a { color: #6f8cff; text-decoration: none; }
+  .result h2 a:hover { text-decoration: underline; }
+  .snip { color: #c7c9d1; margin-bottom: 12px; line-height: 1.5; }
+  .snip mark { background: #f5c518; color: #1a1a1a; padding: 0 2px; border-radius: 3px; }
+  .result img { max-width: 100%; border-radius: 6px; border: 1px solid #333; display: block; }
+  .hint { color: #7d8194; font-size: 13px; margin-top: -8px; margin-bottom: 20px; }
+</style>
+</head>
+<body>
+  <h1>Calvin and Hobbes</h1>
+  <nav>
+    <a href="{{ url_for('index') }}" class="{{ 'active' if active == 'search' else '' }}">Search</a>
+    <a href="{{ url_for('color_page') }}" class="{{ 'active' if active == 'color' else '' }}">Colored Pages</a>
+  </nav>
+  {% block content %}{% endblock %}
+</body>
+</html>

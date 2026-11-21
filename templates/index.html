@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Calvin and Hobbes Search{% endblock %}
+{% block content %}
+  <form method="get" action="/">
+    <input type="text" name="q" placeholder="Search for a word or phrase..." value="{{ q }}" autofocus>
+    <select name="issue">
+      <option value="">All issues</option>
+      {% for n in issues %}
+      <option value="{{ n }}" {% if issue_filter == n|string %}selected{% endif %}>Issue {{ n }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit">Search</button>
+  </form>
+  <div class="hint">All words must appear on the page. OCR is imperfect on comic lettering — try wildcards (e.g. <code>transmog*</code>) or a shorter/partial word if you don't find what you expect.</div>
+
+  {% if error %}
+    <div class="error">{{ error }}</div>
+  {% elif q %}
+    <div class="meta">
+      {% if total == 0 %}
+        No matches for &ldquo;{{ q }}&rdquo;.
+      {% else %}
+        {{ total }} match{{ 'es' if total != 1 else '' }} for &ldquo;{{ q }}&rdquo;{% if total > limit %} (showing first {{ limit }}){% endif %}
+      {% endif %}
+    </div>
+
+    {% for r in results %}
+    <div class="result">
+      <h2><a href="{{ url_for('image', issue=r.issue, page=r.page, q=q) }}" target="_blank">Issue {{ r.issue }}, Page {{ r.page }}</a></h2>
+      <div class="snip">{{ r.snip|safe }}</div>
+      <a href="{{ url_for('image', issue=r.issue, page=r.page, q=q) }}" target="_blank">
+        <img src="{{ url_for('image', issue=r.issue, page=r.page, q=q) }}" loading="lazy" alt="Issue {{ r.issue }} page {{ r.page }}">
+      </a>
+    </div>
+    {% endfor %}
+  {% endif %}
+{% endblock %}
